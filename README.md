@@ -3,16 +3,14 @@ pyv8-linux-x64
 
 This is a binary distribution of PyV8 for Linux x86_64.
 
-Packaged versions included:
+Dependencies:
+
+* Boost 1.54
+
+PyV8 and V8 versions included:
 
 * PyV8 revision 549
 * V8 branch 3.21
-
-Build with:
-
-* Boost 1.54.0
-* Python 2.6
-* CentOS 6.4
 
 Installation
 =============
@@ -25,8 +23,63 @@ pip install -e git+https://github.com/taguchimail/pyv8-linux-x64.git#egg=pyv8
 Usage
 =====
 
-Import the pyv8 package to start using PyV8:
+Import the pyv8 package to start using PyV8.
+
+``` 
+# From the PyV8 website
+>>> from pyv8 import PyV8
+>>> ctxt = PyV8.JSContext()          # create a context with an implicit global object
+>>> ctxt.enter()                     # enter the context (also support with statement)
+>>> ctxt.eval("1+2")                 # evalute the javascript expression
+3                                    # return a native python int
+>>> class Global(PyV8.JSClass):      # define a compatible javascript class
+...   def hello(self):               # define a method
+...     print "Hello World"    
+...
+>>> ctxt2 = PyV8.JSContext(Global()) # create another context with the global object
+>>> ctxt2.enter()                    
+>>> ctxt2.eval("hello()")            # call the global object from javascript
+Hello World                          # the output from python script
+```
+
+Build Instructions
+==================
+
+Dependencies:
+
+* GCC and G++
+* SVN and Git
+* Python
+* Systemtap (systemtap-sdt-devel) / DTrace
+
+## Boost
+
+Download and extract Boost 1.54 and run the following:
 
 ```
-from pyv8 import PyV8
+[~/boost $] ./bootstrap.sh
+[~/boost $] ./b2 install --prefix=/usr/local --with-python --with-thread
+[~/boost $] ldconfig && ldconfig /usr/local/lib
 ```
+
+# V8
+
+Download V8 (via git or svn) and switch to branch 3.21. Afterwards, run the following:
+
+```
+[~/v8 $] make dependencies
+[~/v8 $] patch -p1 < ~/pyv8-linux-x64/patches/v8.patch # Enables RTTI and Exception
+[~/v8 $] make x64.release library=shared
+[~/v8 $] make x64.release.check # Sanity check - run the tests
+```
+
+## PyV8
+
+Download PyV8 @ revision 549, and run the following:
+
+```
+[~/pyv8 $] patch -p1 < ~/pyv8-linux-x64/patches/pyv8.patch # Skip building V8
+[~/pyv8 $] V8_HOME=/home/me/v8/ python setup.py build
+```
+
+Once built, copy the necessary build artifacts into the src folder.
