@@ -1,0 +1,53 @@
+diff --git a/build/standalone.gypi b/build/standalone.gypi
+index 5c017d5..49e7b4f 100644
+--- a/build/standalone.gypi
++++ b/build/standalone.gypi
+@@ -69,7 +69,7 @@
+     'host_arch%': '<(host_arch)',
+     'target_arch%': '<(target_arch)',
+     'v8_target_arch%': '<(v8_target_arch)',
+-    'werror%': '-Werror',
++    'werror%': '',
+ 
+     # .gyp files or targets should set v8_code to 1 if they build V8 specific
+     # code, as opposed to external code.  This variable is used to control such
+@@ -126,7 +126,7 @@
+         'conditions': [
+           ['os_posix == 1 and OS != "mac"', {
+             'cflags!': [
+-              '-Werror',
++              '',
+             ],
+           }],
+           ['OS == "mac"', {
+@@ -149,9 +149,9 @@
+     ['OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris" \
+        or OS=="netbsd"', {
+       'target_defaults': {
+-        'cflags': [ '-Wall', '<(werror)', '-W', '-Wno-unused-parameter',
+-                    '-pthread', '-fno-exceptions', '-pedantic' ],
+-        'cflags_cc': [ '-Wnon-virtual-dtor', '-fno-rtti' ],
++        'cflags': [ '-Wall', '-W', '-Wno-unused-parameter',
++                    '-pthread', '-pedantic' ],
++        'cflags_cc': [ '-Wnon-virtual-dtor' ],
+         'ldflags': [ '-pthread', ],
+         'conditions': [
+           [ 'OS=="linux"', {
+@@ -248,14 +248,14 @@
+           'GCC_CW_ASM_SYNTAX': 'NO',                # No -fasm-blocks
+           'GCC_DYNAMIC_NO_PIC': 'NO',               # No -mdynamic-no-pic
+                                                     # (Equivalent to -fPIC)
+-          'GCC_ENABLE_CPP_EXCEPTIONS': 'NO',        # -fno-exceptions
+-          'GCC_ENABLE_CPP_RTTI': 'NO',              # -fno-rtti
++          'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',        # -fno-exceptions
++          'GCC_ENABLE_CPP_RTTI': 'YES',              # -fno-rtti
+           'GCC_ENABLE_PASCAL_STRINGS': 'NO',        # No -mpascal-strings
+           # GCC_INLINES_ARE_PRIVATE_EXTERN maps to -fvisibility-inlines-hidden
+           'GCC_INLINES_ARE_PRIVATE_EXTERN': 'YES',
+           'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES',      # -fvisibility=hidden
+           'GCC_THREADSAFE_STATICS': 'NO',           # -fno-threadsafe-statics
+-          'GCC_TREAT_WARNINGS_AS_ERRORS': 'YES',    # -Werror
++          #'GCC_TREAT_WARNINGS_AS_ERRORS': 'NO',    # -Werror
+           'GCC_VERSION': 'com.apple.compilers.llvmgcc42',
+           'GCC_WARN_ABOUT_MISSING_NEWLINE': 'YES',  # -Wnewline-eof
+           'GCC_WARN_NON_VIRTUAL_DESTRUCTOR': 'YES', # -Wnon-virtual-dtor
