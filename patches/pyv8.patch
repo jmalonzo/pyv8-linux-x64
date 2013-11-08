@@ -1,6 +1,19 @@
+Index: src/Context.cpp
+===================================================================
+--- src/Context.cpp	(revision 553)
++++ src/Context.cpp	(working copy)
+@@ -133,7 +133,7 @@
+   {
+     Handle()->Global()->Set(v8::String::NewSymbol("__proto__"), CPythonObject::Wrap(global));
+ 
+-    Py_DECREF(global.ptr());
++    //Py_DECREF(global.ptr());
+   }
+ }
+ 
 Index: setup.py
 ===================================================================
---- setup.py	(revision 549)
+--- setup.py	(revision 553)
 +++ setup.py	(working copy)
 @@ -531,9 +531,9 @@
  
