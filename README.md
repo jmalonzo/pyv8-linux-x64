@@ -9,8 +9,8 @@ Dependencies:
 
 PyV8 and V8 versions included:
 
-* PyV8 revision 549
-* V8 branch 3.21
+* PyV8 revision 553
+* V8 branch 3.22
 
 Installation
 =============
@@ -64,18 +64,17 @@ Download and extract Boost 1.54 and run the following:
 
 # V8
 
-Download V8 (via git or svn) and switch to branch 3.21. Afterwards, run the following:
+Download V8 (via git or svn) and switch to branch 3.22. Afterwards, run the following:
 
 ```
 [~/v8 $] make dependencies
 [~/v8 $] patch -p1 < ~/pyv8-linux-x64/patches/v8.patch # Enables RTTI and Exception
-[~/v8 $] make x64.release library=shared
-[~/v8 $] make x64.release.check # Sanity check - run the tests
+[~/v8 $] make x64.release.check library=shared werror=no console=readline snapshot=on debuggersupport=on i18nsupport=off
 ```
 
 ## PyV8
 
-Download PyV8 @ revision 549, and run the following:
+Download PyV8 @ revision 553, and run the following:
 
 ```
 [~/pyv8 $] patch -p1 < ~/pyv8-linux-x64/patches/pyv8.patch # Skip building V8

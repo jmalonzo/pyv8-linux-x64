@@ -865,7 +865,7 @@ class AST:
     Assignment = _PyV8.AstAssignment
     Throw = _PyV8.AstThrow
     Function = _PyV8.AstFunctionLiteral
-    SharedFunction = _PyV8.AstSharedFunctionInfoLiteral
+    NativeFunction = _PyV8.AstNativeFunctionLiteral
     This = _PyV8.AstThisFunction
 
 from datetime import *
@@ -1276,7 +1276,7 @@ class TestWrapper(unittest.TestCase):
                     self.assertEqual(35, e.endCol)
                     self.assertEqual('throw Error("hello world");', e.sourceLine.strip())
                     self.assertEqual('Error: hello world\n' +
-                                     '    at Error (<anonymous>)\n' +
+                                     '    at Error (native)\n' +
                                      '    at hello (test:14:35)\n' +
                                      '    at test:17:25', e.stackTrace)
 
@@ -2417,8 +2417,6 @@ class TestAST(unittest.TestCase):
                 self.assertEqual(AST.NodeType.IfStatement, stmt.type)
 
                 self.assertEqual(7, stmt.pos)
-                stmt.pos = 100
-                self.assertEqual(100, stmt.pos)
 
                 self.assertTrue(stmt.hasThenStatement)
                 self.assertTrue(stmt.hasElseStatement)
@@ -2472,7 +2470,7 @@ class TestAST(unittest.TestCase):
                 self.assertEqual("{ i += 1; }", str(stmt.body))
 
                 self.assertEqual("(i < 10)", str(stmt.condition))
-                self.assertEqual(281, stmt.conditionPos)
+                self.assertEqual(283, stmt.condition.pos)
 
         with ForStatementChecker(self) as checker:
             self.assertEqual(['for', 'forIn', 'while', 'doWhile'], checker.test("""
@@ -2704,8 +2702,8 @@ class TestAST(unittest.TestCase):
                 self.assertEqual("i", str(expr.thenExpr))
                 self.assertEqual("j", str(expr.elseExpr))
 
-                self.assertEqual(144, expr.thenExprPos)
-                self.assertEqual(146, expr.elseExprPos)
+                self.assertEqual(144, expr.thenExpr.pos)
+                self.assertEqual(146, expr.elseExpr.pos)
 
         with OperationChecker(self) as checker:
             self.assertEqual(['binOp', 'assign', 'countOp', 'compOp', 'compOp', 'binOp', 'conditional'], checker.test("""
@@ -2732,7 +2730,7 @@ class TestAST(unittest.TestCase):
                 self.assertFalse(case.isDefault)
                 self.assertTrue(case.label.isString)
                 self.assertEqual(0, case.bodyTarget.pos)
-                self.assertEqual(57, case.position)
+                self.assertEqual(57, case.pos)
                 self.assertEqual(1, len(case.statements))
 
                 case = stmt.cases[1]
@@ -2740,7 +2738,7 @@ class TestAST(unittest.TestCase):
                 self.assertTrue(case.isDefault)
                 self.assertEqual(None, case.label)
                 self.assertEqual(0, case.bodyTarget.pos)
-                self.assertEqual(109, case.position)
+                self.assertEqual(109, case.pos)
                 self.assertEqual(1, len(case.statements))
 
         with SwitchStatementChecker(self) as checker:
