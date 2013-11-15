@@ -14,7 +14,7 @@ def read(fname):
 
 setup(
     name="PyV8",
-    version="1.0-v8r3.22-pyv8r553",
+    version="1.1-v8r3.22-pyv8r553",
     author="Jan Alonzo",
     author_email="jmalonzo@taguchimail.com",
     description="PyV8 binary for Linux x64",
