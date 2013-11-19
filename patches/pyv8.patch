@@ -1,3 +1,19 @@
+Index: src/Config.h
+===================================================================
+--- src/Config.h	(revision 557)
++++ src/Config.h	(working copy)
+@@ -28,9 +28,9 @@
+ //
+ // Trace the object lifecycle
+ //
+-#define SUPPORT_TRACE_LIFECYCLE 1
++//#define SUPPORT_TRACE_LIFECYCLE 1
+ 
+ //
+ // Enable the dtrace or systemtap probes
+ //
+-#define SUPPORT_PROBES 1
++//#define SUPPORT_PROBES 1
 Index: setup.py
 ===================================================================
 --- setup.py	(revision 557)
