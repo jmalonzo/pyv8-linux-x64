@@ -9,7 +9,7 @@ Dependencies:
 
 PyV8 and V8 versions included:
 
-* PyV8 revision 553
+* PyV8 revision 557
 * V8 branch 3.22
 
 Installation
@@ -74,7 +74,7 @@ Download V8 (via git or svn) and switch to branch 3.22. Afterwards, run the foll
 
 ## PyV8
 
-Download PyV8 @ revision 553, and run the following:
+Download PyV8 @ revision 557, and run the following:
 
 ```
 [~/pyv8 $] patch -p1 < ~/pyv8-linux-x64/patches/pyv8.patch # Skip building V8
