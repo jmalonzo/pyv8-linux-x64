@@ -9,15 +9,15 @@ Dependencies:
 
 PyV8 and V8 versions included:
 
-* PyV8 revision 557
-* V8 branch 3.22
+* PyV8 revision 429
+* V8 revision 10452
 
 Installation
 =============
 
 To install:
 ```
-pip install -e git+https://github.com/taguchimail/pyv8-linux-x64.git#egg=pyv8
+pip install -e git+https://github.com/taguchimail/pyv8-linux-x64.git@stable#egg=PyV8
 ```
 
 Usage
@@ -50,7 +50,7 @@ Dependencies:
 * GCC and G++
 * SVN and Git
 * Python
-* Systemtap (systemtap-sdt-devel) / DTrace
+* Scons
 
 ## Boost
 
@@ -62,23 +62,13 @@ Download and extract Boost 1.54 and run the following:
 [~/boost $] ldconfig && ldconfig /usr/local/lib
 ```
 
-# V8
-
-Download V8 (via git or svn) and switch to branch 3.22. Afterwards, run the following:
-
-```
-[~/v8 $] make dependencies
-[~/v8 $] patch -p1 < ~/pyv8-linux-x64/patches/v8.patch # Enables RTTI and Exception
-[~/v8 $] make x64.release.check library=shared werror=no console=readline snapshot=on debuggersupport=on i18nsupport=off
-```
-
 ## PyV8
 
-Download PyV8 @ revision 557, and run the following:
+Download PyV8 @ revision 429, and run the following:
 
 ```
-[~/pyv8 $] patch -p1 < ~/pyv8-linux-x64/patches/pyv8.patch # Skip building V8
-[~/pyv8 $] V8_HOME=/home/me/v8/ python setup.py build
+[~/pyv8 $] patch -p1 < ~/pyv8-linux-x64/patches/pyv8.patch 
+[~/pyv8 $] python setup.py build
 ```
 
 Once built, copy the necessary build artifacts into the src folder.
