@@ -1,23 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import with_statement
-from __future__ import print_function
 
 import sys, os, re
-import logging
-import collections
-
-is_py3k = sys.version_info[0] > 2
-
-if is_py3k:
-    import _thread as thread
-
-    from io import StringIO
-
-    unicode = str
-    raw_input = input
-else:
-    import thread
 
 try:
     from cStringIO import StringIO
@@ -35,10 +20,10 @@ __author__ = 'Flier Lu <flier.lu@gmail.com>'
 __version__ = '1.0'
 
 __all__ = ["ReadOnly", "DontEnum", "DontDelete", "Internal",
-           "JSError", "JSObject", "JSNull", "JSUndefined", "JSArray", "JSFunction",
+           "JSError", "JSObject", "JSArray", "JSFunction",
            "JSClass", "JSEngine", "JSContext",
            "JSObjectSpace", "JSAllocationAction",
-           "JSStackTrace", "JSStackFrame", "profiler",
+           "JSStackTrace", "JSStackFrame", "profiler", 
            "JSExtension", "JSLocker", "JSUnlocker", "AST"]
 
 class JSAttribute(object):
@@ -47,14 +32,13 @@ class JSAttribute(object):
 
     def __call__(self, func):
         setattr(func, "__%s__" % self.name, True)
-
+        
         return func
 
 ReadOnly = JSAttribute(name='readonly')
 DontEnum = JSAttribute(name='dontenum')
 DontDelete = JSAttribute(name='dontdel')
 Internal = JSAttribute(name='internal')
-
 
 class JSError(Exception):
     def __init__(self, impl):
@@ -117,44 +101,9 @@ class JSError(Exception):
 _PyV8._JSError._jsclass = JSError
 
 JSObject = _PyV8.JSObject
-JSNull = _PyV8.JSNull
-JSUndefined = _PyV8.JSUndefined
 JSArray = _PyV8.JSArray
 JSFunction = _PyV8.JSFunction
-
-# contribute by e.generalov
-
-JS_ESCAPABLE = re.compile(r'([^\x00-\x7f])')
-HAS_UTF8 = re.compile(r'[\x80-\xff]')
-
-
-def _js_escape_unicode_re_callack(match):
-    n = ord(match.group(0))
-    if n < 0x10000:
-        return '\\u%04x' % (n,)
-    else:
-        # surrogate pair
-        n -= 0x10000
-        s1 = 0xd800 | ((n >> 10) & 0x3ff)
-        s2 = 0xdc00 | (n & 0x3ff)
-        return '\\u%04x\\u%04x' % (s1, s2)
-
-
-def js_escape_unicode(text):
-    """Return an ASCII-only representation of a JavaScript string"""
-    if isinstance(text, str):
-        if HAS_UTF8.search(text) is None:
-            return text
-
-        text = text.decode('UTF-8')
-
-    return str(JS_ESCAPABLE.sub(_js_escape_unicode_re_callack, text))
-
-
-class JSExtension(_PyV8.JSExtension):
-    def __init__(self, name, source, callback=None, dependencies=[], register=True):
-        _PyV8.JSExtension.__init__(self, js_escape_unicode(name), js_escape_unicode(source), callback, dependencies, register)
-
+JSExtension = _PyV8.JSExtension
 
 def func_apply(self, thisArg, argArray=[]):
     if isinstance(thisArg, JSObject):
@@ -165,7 +114,6 @@ def func_apply(self, thisArg, argArray=[]):
     return self.invoke(this, argArray)
 
 JSFunction.apply = func_apply
-
 
 class JSLocker(_PyV8.JSLocker):
     def __enter__(self):
@@ -184,13 +132,8 @@ class JSLocker(_PyV8.JSLocker):
 
         self.leave()
 
-    if is_py3k:
-        def __bool__(self):
-            return self.entered()
-    else:
-        def __nonzero__(self):
-            return self.entered()
-
+    def __nonzero__(self):
+        return self.entered()
 
 class JSUnlocker(_PyV8.JSUnlocker):
     def __enter__(self):
@@ -201,13 +144,8 @@ class JSUnlocker(_PyV8.JSUnlocker):
     def __exit__(self, exc_type, exc_value, traceback):
         self.leave()
 
-    if is_py3k:
-        def __bool__(self):
-            return self.entered()
-    else:
-        def __nonzero__(self):
-            return self.entered()
-
+    def __nonzero__(self):
+        return self.entered()
 
 class JSClass(object):
     __properties__ = {}
@@ -222,7 +160,7 @@ class JSClass(object):
 
         prop = self.__dict__.setdefault('__properties__', {}).get(name, None)
 
-        if prop and isinstance(prop[0], collections.Callable):
+        if prop and callable(prop[0]):
             return prop[0]()
 
         raise AttributeError(name)
@@ -230,7 +168,7 @@ class JSClass(object):
     def __setattr__(self, name, value):
         prop = self.__dict__.setdefault('__properties__', {}).get(name, None)
 
-        if prop and isinstance(prop[1], collections.Callable):
+        if prop and callable(prop[1]):
             return prop[1](value)
 
         return object.__setattr__(self, name, value)
@@ -279,7 +217,6 @@ class JSClass(object):
         "Removes a watchpoint set with the watch method."
         del self.__watchpoints__[prop]
 
-
 class JSClassConstructor(JSClass):
     def __init__(self, cls):
         self.cls = cls
@@ -294,7 +231,6 @@ class JSClassConstructor(JSClass):
     def __call__(self, *args, **kwds):
         return self.cls(*args, **kwds)
 
-
 class JSClassPrototype(JSClass):
     def __init__(self, cls):
         self.cls = cls
@@ -306,7 +242,6 @@ class JSClassPrototype(JSClass):
     @property
     def name(self):
         return self.cls.__name__
-
 
 class JSDebugProtocol(object):
     """
@@ -386,8 +321,7 @@ class JSDebugProtocol(object):
         obj = json.loads(payload)
 
         return JSDebugProtocol.Event(obj) if obj['type'] == 'event' else JSDebugProtocol.Response(obj)
-
-
+    
 class JSDebugEvent(_PyV8.JSDebugEvent):
     class FrameData(object):
         def __init__(self, frame, count, name, value):
@@ -400,7 +334,7 @@ class JSDebugEvent(_PyV8.JSDebugEvent):
             return self.count(self.frame)
 
         def __iter__(self):
-            for i in range(self.count(self.frame)):
+            for i in xrange(self.count(self.frame)):
                 yield (self.name(self.frame, i), self.value(self.frame, i))
 
     class Frame(object):
@@ -439,7 +373,7 @@ class JSDebugEvent(_PyV8.JSDebugEvent):
 
         @property
         def arguments(self):
-            return JSDebugEvent.FrameData(self, self.argumentCount, self.argumentName, self.argumentValue)
+            return FrameData(self, self.argumentCount, self.argumentName, self.argumentValue)
 
         def localCount(self, idx):
             return int(self.frame.localCount())
@@ -452,7 +386,7 @@ class JSDebugEvent(_PyV8.JSDebugEvent):
 
         @property
         def locals(self):
-            return JSDebugEvent.FrameData(self, self.localCount, self.localName, self.localValue)
+            return FrameData(self, self.localCount, self.localName, self.localValue)
 
         @property
         def sourcePosition(self):
@@ -496,7 +430,7 @@ class JSDebugEvent(_PyV8.JSDebugEvent):
             return self.state.frameCount
 
         def __iter__(self):
-            for i in range(self.state.frameCount):
+            for i in xrange(self.state.frameCount):
                 yield self.state.frame(i)
 
     class State(object):
@@ -636,7 +570,6 @@ class JSDebugEvent(_PyV8.JSDebugEvent):
     onBeforeCompile = None
     onAfterCompile = None
 
-
 class JSDebugger(JSDebugProtocol, JSDebugEvent):
     def __init__(self):
         JSDebugProtocol.__init__(self)
@@ -738,15 +671,31 @@ class JSDebugger(JSDebugProtocol, JSDebugEvent):
         """Perform a minimum step in the current function."""
         return self.debugContinue(action='out', steps=steps)
 
+class JSProfiler(_PyV8.JSProfiler):
+    @property
+    def logs(self):
+        pos = 0
+
+        while True:
+            size, buf = self.getLogLines(pos)
+
+            if size == 0:
+                break
+
+            for line in buf.split('\n'):
+                yield line
+
+            pos += size
+
+profiler = JSProfiler()
 
 JSObjectSpace = _PyV8.JSObjectSpace
 JSAllocationAction = _PyV8.JSAllocationAction
 
-
 class JSEngine(_PyV8.JSEngine):
     def __init__(self):
         _PyV8.JSEngine.__init__(self)
-
+        
     def __enter__(self):
         return self
 
@@ -759,7 +708,6 @@ JSStackTrace = _PyV8.JSStackTrace
 JSStackTrace.Options = _PyV8.JSStackTraceOptions
 JSStackFrame = _PyV8.JSStackFrame
 
-
 class JSIsolate(_PyV8.JSIsolate):
     def __enter__(self):
         self.enter()
@@ -770,7 +718,6 @@ class JSIsolate(_PyV8.JSIsolate):
         self.leave()
 
         del self
-
 
 class JSContext(_PyV8.JSContext):
     def __init__(self, obj=None, extensions=None, ctxt=None):
@@ -797,17 +744,15 @@ class JSContext(_PyV8.JSContext):
 
         del self
 
-
 # contribute by marc boeker <http://code.google.com/u/marc.boeker/>
 def convert(obj):
     if type(obj) == _PyV8.JSArray:
         return [convert(v) for v in obj]
 
     if type(obj) == _PyV8.JSObject:
-        return dict([[str(k), convert(obj.__getattr__(str(k)))] for k in (obj.__dir__() if is_py3k else obj.__members__)])
+        return dict([[str(k), convert(obj.__getattr__(str(k)))] for k in obj.__members__])
 
     return obj
-
 
 class AST:
     Scope = _PyV8.AstScope
@@ -821,12 +766,6 @@ class AST:
     Breakable = _PyV8.AstBreakableStatement
     Block = _PyV8.AstBlock
     Declaration = _PyV8.AstDeclaration
-    VariableDeclaration = _PyV8.AstVariableDeclaration
-    Module = _PyV8.AstModule
-    ModuleDeclaration = _PyV8.AstModuleDeclaration
-    ModuleLiteral = _PyV8.AstModuleLiteral
-    ModuleVariable = _PyV8.AstModuleVariable
-    ModulePath = _PyV8.AstModulePath
     Iteration = _PyV8.AstIterationStatement
     DoWhile = _PyV8.AstDoWhileStatement
     While = _PyV8.AstWhileStatement
@@ -865,29 +804,18 @@ class AST:
     Assignment = _PyV8.AstAssignment
     Throw = _PyV8.AstThrow
     Function = _PyV8.AstFunctionLiteral
-    NativeFunction = _PyV8.AstNativeFunctionLiteral
+    SharedFunction = _PyV8.AstSharedFunctionInfoLiteral
     This = _PyV8.AstThisFunction
 
 from datetime import *
 import unittest
+import logging
 import traceback
-
-if is_py3k:
-    def toNativeString(s):
-        return s
-    def toUnicodeString(s):
-        return s
-else:
-    def toNativeString(s, encoding='utf-8'):
-        return s.encode(encoding) if isinstance(s, unicode) else s
-
-    def toUnicodeString(s, encoding='utf-8'):
-        return s if isinstance(s, unicode) else unicode(s, encoding)
 
 class TestContext(unittest.TestCase):
     def testMultiNamespace(self):
-        self.assertTrue(not bool(JSContext.inContext))
-        self.assertTrue(not bool(JSContext.entered))
+        self.assert_(not bool(JSContext.inContext))
+        self.assert_(not bool(JSContext.entered))
 
         class Global(object):
             name = "global"
@@ -895,9 +823,9 @@ class TestContext(unittest.TestCase):
         g = Global()
 
         with JSContext(g) as ctxt:
-            self.assertTrue(bool(JSContext.inContext))
-            self.assertEqual(g.name, str(JSContext.entered.locals.name))
-            self.assertEqual(g.name, str(JSContext.current.locals.name))
+            self.assert_(bool(JSContext.inContext))
+            self.assertEquals(g.name, str(JSContext.entered.locals.name))
+            self.assertEquals(g.name, str(JSContext.current.locals.name))
 
             class Local(object):
                 name = "local"
@@ -905,16 +833,16 @@ class TestContext(unittest.TestCase):
             l = Local()
 
             with JSContext(l):
-                self.assertTrue(bool(JSContext.inContext))
-                self.assertEqual(l.name, str(JSContext.entered.locals.name))
-                self.assertEqual(l.name, str(JSContext.current.locals.name))
+                self.assert_(bool(JSContext.inContext))
+                self.assertEquals(l.name, str(JSContext.entered.locals.name))
+                self.assertEquals(l.name, str(JSContext.current.locals.name))
 
-            self.assertTrue(bool(JSContext.inContext))
-            #self.assertEqual(g.name, str(JSContext.entered.locals.name))
-            self.assertEqual(g.name, str(JSContext.current.locals.name))
+            self.assert_(bool(JSContext.inContext))
+            self.assertEquals(g.name, str(JSContext.entered.locals.name))
+            self.assertEquals(g.name, str(JSContext.current.locals.name))
 
-        self.assertTrue(not bool(JSContext.entered))
-        self.assertTrue(not bool(JSContext.inContext))
+        self.assert_(not bool(JSContext.entered))
+        self.assert_(not bool(JSContext.inContext))
 
     def _testMultiContext(self):
         # Create an environment
@@ -924,7 +852,7 @@ class TestContext(unittest.TestCase):
             global0 = ctxt0.locals
             global0.custom = 1234
 
-            self.assertEqual(1234, int(global0.custom))
+            self.assertEquals(1234, int(global0.custom))
 
             # Create an independent environment
             with JSContext() as ctxt1:
@@ -934,15 +862,17 @@ class TestContext(unittest.TestCase):
                 global1.custom = 1234
 
                 with ctxt0:
-                    self.assertEqual(1234, int(global0.custom))
-                self.assertEqual(1234, int(global1.custom))
+                    self.assertEquals(1234, int(global0.custom))
+                self.assertEquals(1234, int(global1.custom))
 
                 # Now create a new context with the old global
                 with JSContext(global1) as ctxt2:
                     ctxt2.securityToken = ctxt1.securityToken
 
                     with ctxt1:
-                        self.assertEqual(1234, int(global1.custom))
+                        self.assertEquals(1234, int(global1.custom))
+                        
+                    self.assertEquals(1234, int(global2.custom))
 
     def _testSecurityChecks(self):
         with JSContext() as env1:
@@ -953,14 +883,14 @@ class TestContext(unittest.TestCase):
 
             spy = env1.locals.spy
 
-            self.assertTrue(isinstance(spy, _PyV8.JSFunction))
+            self.assert_(isinstance(spy, _PyV8.JSFunction))
 
             # Create another function accessing global objects.
             env1.eval("spy2=function(){return 123;}")
 
             spy2 = env1.locals.spy2
 
-            self.assertTrue(isinstance(spy2, _PyV8.JSFunction))
+            self.assert_(isinstance(spy2, _PyV8.JSFunction))
 
             # Switch to env2 in the same domain and invoke spy on env2.
             env2 = JSContext()
@@ -970,7 +900,7 @@ class TestContext(unittest.TestCase):
             with env2:
                 result = spy.apply(env2.locals)
 
-                self.assertTrue(isinstance(result, _PyV8.JSFunction))
+                self.assert_(isinstance(result, _PyV8.JSFunction))
 
             env2.securityToken = "bar"
 
@@ -993,28 +923,28 @@ class TestContext(unittest.TestCase):
             # Change env2 to a different domain and delete env1.prop.
             #env2.securityToken = "bar"
 
-            self.assertEqual(3, int(env1.eval("prop")))
+            self.assertEquals(3, int(env1.eval("prop")))
+
+            print env1.eval("env1")
 
             with env2:
-                self.assertEqual(3, int(env2.eval("this.env1.prop")))
-                self.assertEqual("false", str(env2.eval("delete env1.prop")))
+                self.assertEquals(3, int(env2.eval("this.env1.prop")))
+                self.assertEquals("false", str(e.eval("delete env1.prop")))
 
             # Check that env1.prop still exists.
-            self.assertEqual(3, int(env1.locals.prop))
+            self.assertEquals(3, int(env1.locals.prop))
 
 class TestWrapper(unittest.TestCase):
     def testObject(self):
         with JSContext() as ctxt:
             o = ctxt.eval("new Object()")
 
-            self.assertTrue(hash(o) > 0)
+            self.assert_(hash(o) > 0)
 
             o1 = o.clone()
 
-            self.assertEqual(hash(o1), hash(o))
-            self.assertTrue(o != o1)
-
-        self.assertRaises(UnboundLocalError, o.clone)
+            self.assertEquals(hash(o1), hash(o))
+            self.assert_(o != o1)
 
     def testAutoConverter(self):
         with JSContext() as ctxt:
@@ -1032,36 +962,36 @@ class TestWrapper(unittest.TestCase):
 
             var_i = vars.var_i
 
-            self.assertTrue(var_i)
-            self.assertEqual(1, int(var_i))
+            self.assert_(var_i)
+            self.assertEquals(1, int(var_i))
 
             var_f = vars.var_f
 
-            self.assertTrue(var_f)
-            self.assertEqual(1.0, float(vars.var_f))
+            self.assert_(var_f)
+            self.assertEquals(1.0, float(vars.var_f))
 
             var_s = vars.var_s
-            self.assertTrue(var_s)
-            self.assertEqual("test", str(vars.var_s))
+            self.assert_(var_s)
+            self.assertEquals("test", str(vars.var_s))
 
             var_b = vars.var_b
-            self.assertTrue(var_b)
-            self.assertTrue(bool(var_b))
+            self.assert_(var_b)
+            self.assert_(bool(var_b))
 
-            self.assertEqual("test", vars.var_s_obj)
-            self.assertTrue(vars.var_b_obj)
-            self.assertEqual(1.5, vars.var_f_obj)
+            self.assertEquals("test", vars.var_s_obj)
+            self.assert_(vars.var_b_obj)
+            self.assertEquals(1.5, vars.var_f_obj)
 
             attrs = dir(ctxt.locals)
 
-            self.assertTrue(attrs)
-            self.assertTrue("var_i" in attrs)
-            self.assertTrue("var_f" in attrs)
-            self.assertTrue("var_s" in attrs)
-            self.assertTrue("var_b" in attrs)
-            self.assertTrue("var_s_obj" in attrs)
-            self.assertTrue("var_b_obj" in attrs)
-            self.assertTrue("var_f_obj" in attrs)
+            self.assert_(attrs)
+            self.assert_("var_i" in attrs)
+            self.assert_("var_f" in attrs)
+            self.assert_("var_s" in attrs)
+            self.assert_("var_b" in attrs)
+            self.assert_("var_s_obj" in attrs)
+            self.assert_("var_b_obj" in attrs)
+            self.assert_("var_f_obj" in attrs)
 
     def testExactConverter(self):
         class MyInteger(int, JSClass):
@@ -1095,61 +1025,62 @@ class TestWrapper(unittest.TestCase):
             typename = ctxt.eval("(function (name) { return this[name].constructor.name; })")
             typeof = ctxt.eval("(function (name) { return typeof(this[name]); })")
 
-            self.assertEqual('Boolean', typename('var_bool'))
-            self.assertEqual('Number', typename('var_int'))
-            self.assertEqual('Number', typename('var_float'))
-            self.assertEqual('String', typename('var_str'))
-            self.assertEqual('String', typename('var_unicode'))
-            self.assertEqual('Date', typename('var_datetime'))
-            self.assertEqual('Date', typename('var_date'))
-            self.assertEqual('Date', typename('var_time'))
+            self.assertEquals('Boolean', typename('var_bool'))
+            self.assertEquals('Number', typename('var_int'))
+            self.assertEquals('Number', typename('var_float'))
+            self.assertEquals('String', typename('var_str'))
+            self.assertEquals('String', typename('var_unicode'))
+            self.assertEquals('Date', typename('var_datetime'))
+            self.assertEquals('Date', typename('var_date'))
+            self.assertEquals('Date', typename('var_time'))
 
-            self.assertEqual('MyInteger', typename('var_myint'))
-            self.assertEqual('MyString', typename('var_mystr'))
-            self.assertEqual('MyUnicode', typename('var_myunicode'))
-            self.assertEqual('MyDateTime', typename('var_mytime'))
+            self.assertEquals('MyInteger', typename('var_myint'))
+            self.assertEquals('MyString', typename('var_mystr'))
+            self.assertEquals('MyUnicode', typename('var_myunicode'))
+            self.assertEquals('MyDateTime', typename('var_mytime'))
 
-            self.assertEqual('object', typeof('var_myint'))
-            self.assertEqual('object', typeof('var_mystr'))
-            self.assertEqual('object', typeof('var_myunicode'))
-            self.assertEqual('object', typeof('var_mytime'))
+            self.assertEquals('object', typeof('var_myint'))
+            self.assertEquals('object', typeof('var_mystr'))
+            self.assertEquals('object', typeof('var_myunicode'))
+            self.assertEquals('object', typeof('var_mytime'))
 
     def testJavascriptWrapper(self):
         with JSContext() as ctxt:
-            self.assertEqual(type(None), type(ctxt.eval("null")))
-            self.assertEqual(type(None), type(ctxt.eval("undefined")))
-            self.assertEqual(bool, type(ctxt.eval("true")))
-            self.assertEqual(str, type(ctxt.eval("'test'")))
-            self.assertEqual(int, type(ctxt.eval("123")))
-            self.assertEqual(float, type(ctxt.eval("3.14")))
-            self.assertEqual(datetime, type(ctxt.eval("new Date()")))
-            self.assertEqual(JSArray, type(ctxt.eval("[1, 2, 3]")))
-            self.assertEqual(JSFunction, type(ctxt.eval("(function() {})")))
-            self.assertEqual(JSObject, type(ctxt.eval("new Object()")))
+            self.assertEquals(type(None), type(ctxt.eval("null")))
+            self.assertEquals(type(None), type(ctxt.eval("undefined")))
+            self.assertEquals(bool, type(ctxt.eval("true")))
+            self.assertEquals(str, type(ctxt.eval("'test'")))
+            self.assertEquals(int, type(ctxt.eval("123")))
+            self.assertEquals(float, type(ctxt.eval("3.14")))
+            self.assertEquals(datetime, type(ctxt.eval("new Date()")))
+            self.assertEquals(JSArray, type(ctxt.eval("[1, 2, 3]")))
+            self.assertEquals(JSFunction, type(ctxt.eval("(function() {})")))
+            self.assertEquals(JSObject, type(ctxt.eval("new Object()")))
 
     def testPythonWrapper(self):
         with JSContext() as ctxt:
             typeof = ctxt.eval("(function type(value) { return typeof value; })")
             protoof = ctxt.eval("(function protoof(value) { return Object.prototype.toString.apply(value); })")
 
-            self.assertEqual('[object Null]', protoof(None))
-            self.assertEqual('boolean', typeof(True))
-            self.assertEqual('number', typeof(123))
-            self.assertEqual('number', typeof(3.14))
-            self.assertEqual('string', typeof('test'))
-            self.assertEqual('string', typeof(u'test'))
+            self.assertEquals('[object Null]', protoof(None))
+            self.assertEquals('boolean', typeof(True))
+            self.assertEquals('number', typeof(123))
+            self.assertEquals('number', typeof(123l))
+            self.assertEquals('number', typeof(3.14))
+            self.assertEquals('string', typeof('test'))
+            self.assertEquals('string', typeof(u'test'))
 
-            self.assertEqual('[object Date]', protoof(datetime.now()))
-            self.assertEqual('[object Date]', protoof(date.today()))
-            self.assertEqual('[object Date]', protoof(time()))
+            self.assertEquals('[object Date]', protoof(datetime.now()))
+            self.assertEquals('[object Date]', protoof(date.today()))
+            self.assertEquals('[object Date]', protoof(time()))
 
             def test():
                 pass
 
-            self.assertEqual('[object Function]', protoof(abs))
-            self.assertEqual('[object Function]', protoof(test))
-            self.assertEqual('[object Function]', protoof(self.testPythonWrapper))
-            self.assertEqual('[object Function]', protoof(int))
+            self.assertEquals('[object Function]', protoof(abs))
+            self.assertEquals('[object Function]', protoof(test))
+            self.assertEquals('[object Function]', protoof(self.testPythonWrapper))
+            self.assertEquals('[object Function]', protoof(int))
 
     def testFunction(self):
         with JSContext() as ctxt:
@@ -1165,26 +1096,24 @@ class TestWrapper(unittest.TestCase):
                 })
                 """)
 
-            self.assertEqual("abc", str(func()))
-            self.assertTrue(func != None)
+            self.assertEquals("abc", str(func()))
+            self.assert_(func != None)
             self.assertFalse(func == None)
 
             func = ctxt.eval("(function test() {})")
 
-            self.assertEqual("test", func.name)
-            self.assertEqual("", func.resname)
-            self.assertEqual(0, func.linenum)
-            self.assertEqual(14, func.colnum)
-            self.assertEqual(0, func.lineoff)
-            self.assertEqual(0, func.coloff)
-
+            self.assertEquals("test", func.name)
+            self.assertEquals("", func.resname)
+            self.assertEquals(0, func.linenum)
+            self.assertEquals(14, func.colnum)
+            self.assertEquals(0, func.lineoff)
+            self.assertEquals(0, func.coloff)
+            
             #TODO fix me, why the setter doesn't work?
-            # func.name = "hello"
-            # it seems __setattr__ was called instead of CJavascriptFunction::SetName
 
-            func.setName("hello")
+            func.name = "hello"
 
-            self.assertEqual("hello", func.name)
+            #self.assertEquals("hello", func.name)
 
     def testCall(self):
         class Hello(object):
@@ -1195,54 +1124,24 @@ class TestWrapper(unittest.TestCase):
             hello = Hello()
 
         with JSContext(Global()) as ctxt:
-            self.assertEqual("hello flier", ctxt.eval("hello('flier')"))
+            self.assertEquals("hello flier", ctxt.eval("hello('flier')"))
 
     def testJSFunction(self):
         with JSContext() as ctxt:
             hello = ctxt.eval("(function (name) { return 'hello ' + name; })")
 
-            self.assertTrue(isinstance(hello, _PyV8.JSFunction))
-            self.assertEqual("hello flier", hello('flier'))
-            self.assertEqual("hello flier", hello.invoke(['flier']))
+            self.assert_(isinstance(hello, _PyV8.JSFunction))
+            self.assertEquals("hello flier", hello('flier'))
+            self.assertEquals("hello flier", hello.invoke(['flier']))
 
             obj = ctxt.eval("({ 'name': 'flier', 'hello': function (name) { return 'hello ' + name + ' from ' + this.name; }})")
             hello = obj.hello
-            self.assertTrue(isinstance(hello, JSFunction))
-            self.assertEqual("hello flier from flier", hello('flier'))
+            self.assert_(isinstance(hello, JSFunction))
+            self.assertEquals("hello flier from flier", hello('flier'))
 
             tester = ctxt.eval("({ 'name': 'tester' })")
-            self.assertEqual("hello flier from tester", hello.invoke(tester, ['flier']))
-            self.assertEqual("hello flier from json", hello.apply({ 'name': 'json' }, ['flier']))
-
-    def testConstructor(self):
-        with JSContext() as ctx:
-            ctx.eval("""
-                var Test = function() {
-                    this.trySomething();
-                };
-                Test.prototype.trySomething = function() {
-                    this.name = 'flier';
-                };
-
-                var Test2 = function(first_name, last_name) {
-                    this.name = first_name + ' ' + last_name;
-                };
-                """)
-
-            self.assertTrue(isinstance(ctx.locals.Test, _PyV8.JSFunction))
-
-            test = JSObject.create(ctx.locals.Test)
-
-            self.assertTrue(isinstance(ctx.locals.Test, _PyV8.JSObject))
-            self.assertEqual("flier", test.name);
-
-            test2 = JSObject.create(ctx.locals.Test2, ('Flier', 'Lu'))
-
-            self.assertEqual("Flier Lu", test2.name);
-
-            test3 = JSObject.create(ctx.locals.Test2, ('Flier', 'Lu'), { 'email': 'flier.lu@gmail.com' })
-
-            self.assertEqual("flier.lu@gmail.com", test3.email);
+            self.assertEquals("hello flier from tester", hello.invoke(tester, ['flier']))
+            self.assertEquals("hello flier from json", hello.apply({ 'name': 'json' }, ['flier']))
 
     def testJSError(self):
         with JSContext() as ctxt:
@@ -1250,7 +1149,7 @@ class TestWrapper(unittest.TestCase):
                 ctxt.eval('throw "test"')
                 self.fail()
             except:
-                self.assertTrue(JSError, sys.exc_info()[0])
+                self.assert_(JSError, sys.exc_type)
 
     def testErrorInfo(self):
         with JSContext() as ctxt:
@@ -1264,8 +1163,8 @@ class TestWrapper(unittest.TestCase):
 
                         hello();""", "test", 10, 10).run()
                     self.fail()
-                except JSError as e:
-                    self.assertTrue(str(e).startswith('JSError: Error: hello world ( test @ 14 : 34 )  ->'))
+                except JSError, e:
+                    self.assert_(str(e).startswith('JSError: Error: hello world ( test @ 14 : 34 )  ->'))
                     self.assertEqual("Error", e.name)
                     self.assertEqual("hello world", e.message)
                     self.assertEqual("test", e.scriptName)
@@ -1276,12 +1175,12 @@ class TestWrapper(unittest.TestCase):
                     self.assertEqual(35, e.endCol)
                     self.assertEqual('throw Error("hello world");', e.sourceLine.strip())
                     self.assertEqual('Error: hello world\n' +
-                                     '    at Error (native)\n' +
+                                     '    at Error (unknown source)\n' +
                                      '    at hello (test:14:35)\n' +
                                      '    at test:17:25', e.stackTrace)
 
     def testParseStack(self):
-        self.assertEqual([
+        self.assertEquals([
             ('Error', 'unknown source', None, None),
             ('test', 'native', None, None),
             ('<anonymous>', 'test0', 3, 5),
@@ -1319,9 +1218,9 @@ class TestWrapper(unittest.TestCase):
                 }
             c();""", "test")
 
-            self.assertEqual(4, len(st))
-            self.assertEqual("\tat a (test:4:28)\n\tat (eval)\n\tat b (test:8:28)\n\tat c (test:12:28)\n", str(st))
-            self.assertEqual("test.a (4:28)\n. (1:1) eval\ntest.b (8:28) constructor\ntest.c (12:28)",
+            self.assertEquals(4, len(st))
+            self.assertEquals("\tat a (test:4:28)\n\tat (eval)\n\tat b (test:8:28)\n\tat c (test:12:28)\n", str(st))
+            self.assertEquals("test.a (4:28)\n. (1:1) eval\ntest.b (8:28) constructor\ntest.c (12:28)",
                               "\n".join(["%s.%s (%d:%d)%s%s" % (
                                 f.scriptName, f.funcName, f.lineNum, f.column,
                                 ' eval' if f.isEval else '',
@@ -1408,16 +1307,19 @@ class TestWrapper(unittest.TestCase):
                 array;
                 """)
 
-            self.assertTrue(isinstance(array, _PyV8.JSArray))
+            self.assert_(isinstance(array, _PyV8.JSArray))
             self.assertEqual(10, len(array))
 
-            self.assertTrue(5 in array)
+            self.assert_(5 in array)
             self.assertFalse(15 in array)
 
-            self.assertEqual(10, len(array))
+            l = list(array)
 
-            for i in range(10):
+            self.assertEqual(10, len(l))
+
+            for i in xrange(10):
                 self.assertEqual(10-i, array[i])
+                self.assertEqual(10-i, l[i])
 
             array[5] = 0
 
@@ -1425,33 +1327,12 @@ class TestWrapper(unittest.TestCase):
 
             del array[5]
 
-            self.assertEqual(None, array[5])
-
-            # array         [10, 9, 8, 7, 6, None, 4, 3, 2, 1]
-            # array[4:7]                  4^^^^^^^^^7
-            # array[-3:-1]                         -3^^^^^^-1
-            # array[0:0]    []
-
-            self.assertEqual([6, None, 4], array[4:7])
-            self.assertEqual([3, 2], array[-3:-1])
-            self.assertEqual([], array[0:0])
-
-            array[1:3] = [9, 9, 9]
-
-            self.assertEqual([10, 9, 9, 9, 7, 6, None, 4, 3, 2, 1], list(array))
-
-            array[5:8] = [8, 8]
-
-            self.assertEqual([10, 9, 9, 9, 7, 8, 8, 3, 2, 1], list(array))
-
-            del array[1:4]
-
-            self.assertEqual([10, 7, 8, 8, 3, 2, 1], list(array))
+            self.assertEquals(None, array[5])
 
             ctxt.locals.array1 = JSArray(5)
             ctxt.locals.array2 = JSArray([1, 2, 3, 4, 5])
 
-            for i in range(len(ctxt.locals.array2)):
+            for i in xrange(len(ctxt.locals.array2)):
                 ctxt.locals.array1[i] = ctxt.locals.array2[i] * 10
 
             ctxt.eval("""
@@ -1467,28 +1348,20 @@ class TestWrapper(unittest.TestCase):
             self.assertEqual(165, ctxt.locals.sum)
 
             ctxt.locals.array3 = [1, 2, 3, 4, 5]
-            self.assertTrue(ctxt.eval('array3[1] === 2'))
-            self.assertTrue(ctxt.eval('array3[9] === undefined'))
+            self.assert_(ctxt.eval('array3[1] === 2'))
+            self.assert_(ctxt.eval('array3[9] === undefined'))
 
-            args = [
-                ["a = Array(7); for(i=0; i<a.length; i++) a[i] = i; a[3] = undefined; a[a.length-1]; a", "0,1,2,,4,5,6", [0, 1, 2, None, 4, 5, 6]],
-                ["a = Array(7); for(i=0; i<a.length - 1; i++) a[i] = i; a[a.length-1]; a", "0,1,2,3,4,5,", [0, 1, 2, 3, 4, 5, None]],
-                ["a = Array(7); for(i=1; i<a.length; i++) a[i] = i; a[a.length-1]; a", ",1,2,3,4,5,6", [None, 1, 2, 3, 4, 5, 6]]
-            ]
+            cases = {
+                "a = Array(7); for(i=0; i<a.length; i++) a[i] = i; a[3] = undefined; a[a.length-1]; a" : ("0,1,2,,4,5,6", [0, 1, 2, None, 4, 5, 6]),
+                "a = Array(7); for(i=0; i<a.length - 1; i++) a[i] = i; a[a.length-1]; a" : ("0,1,2,3,4,5,", [0, 1, 2, 3, 4, 5, None]),
+                "a = Array(7); for(i=1; i<a.length; i++) a[i] = i; a[a.length-1]; a" : (",1,2,3,4,5,6", [None, 1, 2, 3, 4, 5, 6])
+            }
 
-            for arg in args:
-                array = ctxt.eval(arg[0])
+            for code, (keys, values) in cases.items():
+                array = ctxt.eval(code)
 
-                self.assertEqual(arg[1], str(array))
-                self.assertEqual(arg[2], [array[i] for i in range(len(array))])
-
-            self.assertEqual(3, ctxt.eval("(function (arr) { return arr.length; })")(JSArray([1, 2, 3])))
-            self.assertEqual(2, ctxt.eval("(function (arr, idx) { return arr[idx]; })")(JSArray([1, 2, 3]), 1))
-            self.assertEqual('[object Array]', ctxt.eval("(function (arr) { return Object.prototype.toString.call(arr); })")(JSArray([1, 2, 3])))
-            self.assertEqual('[object Array]', ctxt.eval("(function (arr) { return Object.prototype.toString.call(arr); })")(JSArray((1, 2, 3))))
-            self.assertEqual('[object Array]', ctxt.eval("(function (arr) { return Object.prototype.toString.call(arr); })")(JSArray(range(3))))
-
-            [x for x in JSArray([1,2,3])]
+                self.assertEquals(keys, str(array))
+                self.assertEquals(values, [array[i] for i in range(len(array))])
 
     def testMultiDimArray(self):
         with JSContext() as ctxt:
@@ -1503,7 +1376,7 @@ class TestWrapper(unittest.TestCase):
                 })
                 """).test()
 
-            self.assertEqual([[1, 'abla'], [2, 'ajkss']], convert(ret))
+            self.assertEquals([[1, 'abla'], [2, 'ajkss']], convert(ret))
 
     def testLazyConstructor(self):
         class Globals(JSClass):
@@ -1537,14 +1410,16 @@ class TestWrapper(unittest.TestCase):
                 return result;
             })""")
 
-            self.assertTrue(set(["bar", "foo", "foobar"]).issubset(set(func(NamedClass()))))
-            self.assertEqual(["0", "1", "2"], list(func([1, 2, 3])))
-            self.assertEqual(["0", "1", "2"], list(func((1, 2, 3))))
-            self.assertEqual(["1", "2", "3"], list(func({1:1, 2:2, 3:3})))
+            self.assertEquals(["bar", "foo", "foobar"], list(func(NamedClass())))
+            self.assertEquals(["0", "1", "2"], list(func([1, 2, 3])))
+            self.assertEquals(["0", "1", "2"], list(func((1, 2, 3))))
+            self.assertEquals(["1", "2", "3"], list(func({1:1, 2:2, 3:3})))
 
-            self.assertEqual(["0", "1", "2"], list(func(gen(3))))
+            self.assertEquals(["0", "1", "2"], list(func(gen(3))))
 
     def testDict(self):
+        import UserDict
+
         with JSContext() as ctxt:
             obj = ctxt.eval("var r = { 'a' : 1, 'b' : 2 }; r")
 
@@ -1573,33 +1448,28 @@ class TestWrapper(unittest.TestCase):
         with JSContext() as ctxt:
             now1 = ctxt.eval("new Date();")
 
-            self.assertTrue(now1)
+            self.assert_(now1)
 
-            now2 = datetime.now()
+            now2 = datetime.utcnow()
 
             delta = now2 - now1 if now2 > now1 else now1 - now2
 
-            self.assertTrue(delta < timedelta(seconds=1))
+            self.assert_(delta < timedelta(seconds=1))
 
             func = ctxt.eval("(function (d) { return d.toString(); })")
 
             now = datetime.now()
 
-            self.assertTrue(str(func(now)).startswith(now.strftime("%a %b %d %Y %H:%M:%S")))
-
-            ctxt.eval("function identity(x) { return x; }")
-            # JS only has millisecond resolution, so cut it off there
-            now3 = now2.replace(microsecond=123000)
-            self.assertEqual(now3, ctxt.locals.identity(now3))
+            self.assert_(str(func(now)).startswith(now.strftime("%a %b %d %Y %H:%M:%S")))
 
     def testUnicode(self):
         with JSContext() as ctxt:
-            self.assertEqual(u"人", toUnicodeString(ctxt.eval(u"\"人\"")))
-            self.assertEqual(u"é", toUnicodeString(ctxt.eval(u"\"é\"")))
+            self.assertEquals(u"人", unicode(ctxt.eval(u"\"人\""), "utf-8"))
+            self.assertEquals(u"é", unicode(ctxt.eval(u"\"é\""), "utf-8"))
 
             func = ctxt.eval("(function (msg) { return msg.length; })")
 
-            self.assertEqual(2, func(u"测试"))
+            self.assertEquals(2, func(u"测试"))
 
     def testClassicStyleObject(self):
         class FileSystemWarpper:
@@ -1613,7 +1483,7 @@ class TestWrapper(unittest.TestCase):
                 return FileSystemWarpper()
 
         with JSContext(Global()) as ctxt:
-            self.assertEqual(os.getcwd(), ctxt.eval("fs.cwd"))
+            self.assertEquals(os.getcwd(), ctxt.eval("fs.cwd"))
 
     def testRefCount(self):
         count = sys.getrefcount(None)
@@ -1621,25 +1491,18 @@ class TestWrapper(unittest.TestCase):
         class Global(JSClass):
             pass
 
-        g = Global()
-        g_refs = sys.getrefcount(g)
-
-        with JSContext(g) as ctxt:
+        with JSContext(Global()) as ctxt:
             ctxt.eval("""
                 var none = null;
             """)
 
-            self.assertEqual(count+1, sys.getrefcount(None))
+            self.assertEquals(count+1, sys.getrefcount(None))
 
             ctxt.eval("""
                 var none = null;
             """)
 
-            self.assertEqual(count+1, sys.getrefcount(None))
-
-            del ctxt
-
-        self.assertEqual(g_refs, sys.getrefcount(g))
+            self.assertEquals(count+1, sys.getrefcount(None))
 
     def testProperty(self):
         class Global(JSClass):
@@ -1657,16 +1520,16 @@ class TestWrapper(unittest.TestCase):
         g = Global('world')
 
         with JSContext(g) as ctxt:
-            self.assertEqual('world', ctxt.eval("name"))
-            self.assertEqual('flier', ctxt.eval("this.name = 'flier';"))
-            self.assertEqual('flier', ctxt.eval("name"))
-            self.assertTrue(ctxt.eval("delete name"))
+            self.assertEquals('world', ctxt.eval("name"))
+            self.assertEquals('flier', ctxt.eval("this.name = 'flier';"))
+            self.assertEquals('flier', ctxt.eval("name"))
+            self.assert_(ctxt.eval("delete name"))
             ###
             # FIXME replace the global object with Python object
             #
-            #self.assertEqual('deleted', ctxt.eval("name"))
+            #self.assertEquals('deleted', ctxt.eval("name"))
             #ctxt.eval("__defineGetter__('name', function() { return 'fixed'; });")
-            #self.assertEqual('fixed', ctxt.eval("name"))
+            #self.assertEquals('fixed', ctxt.eval("name"))
 
     def testGetterAndSetter(self):
         class Global(JSClass):
@@ -1674,7 +1537,7 @@ class TestWrapper(unittest.TestCase):
                self.testval = testval
 
         with JSContext(Global("Test Value A")) as ctxt:
-           self.assertEqual("Test Value A", ctxt.locals.testval)
+           self.assertEquals("Test Value A", ctxt.locals.testval)
            ctxt.eval("""
                this.__defineGetter__("test", function() {
                    return this.testval;
@@ -1683,11 +1546,11 @@ class TestWrapper(unittest.TestCase):
                    this.testval = val;
                });
            """)
-           self.assertEqual("Test Value A",  ctxt.locals.test)
+           self.assertEquals("Test Value A",  ctxt.locals.test)
 
            ctxt.eval("test = 'Test Value B';")
 
-           self.assertEqual("Test Value B",  ctxt.locals.test)
+           self.assertEquals("Test Value B",  ctxt.locals.test)
 
     def testDestructor(self):
         import gc
@@ -1708,11 +1571,11 @@ class TestWrapper(unittest.TestCase):
 
                 obj = Hello()
 
-                self.assertEqual(2, sys.getrefcount(obj))
+                self.assert_(2, sys.getrefcount(obj))
 
                 fn(obj)
 
-                self.assertEqual(4, sys.getrefcount(obj))
+                self.assert_(3, sys.getrefcount(obj))
 
                 del obj
 
@@ -1723,13 +1586,13 @@ class TestWrapper(unittest.TestCase):
         JSEngine.collect()
         gc.collect()
 
-        self.assertTrue(owner.deleted)
+        self.assert_(self.deleted)
 
     def testNullInString(self):
         with JSContext() as ctxt:
             fn = ctxt.eval("(function (s) { return s; })")
 
-            self.assertEqual("hello \0 world", fn("hello \0 world"))
+            self.assertEquals("hello \0 world", fn("hello \0 world"))
 
     def testLivingObjectCache(self):
         class Global(JSClass):
@@ -1738,9 +1601,9 @@ class TestWrapper(unittest.TestCase):
             o = object()
 
         with JSContext(Global()) as ctxt:
-            self.assertTrue(ctxt.eval("i == i"))
-            self.assertTrue(ctxt.eval("b == b"))
-            self.assertTrue(ctxt.eval("o == o"))
+            self.assert_(ctxt.eval("i == i"))
+            self.assert_(ctxt.eval("b == b"))
+            self.assert_(ctxt.eval("o == o"))
 
     def testNamedSetter(self):
         class Obj(JSClass):
@@ -1765,9 +1628,9 @@ class TestWrapper(unittest.TestCase):
             x.p = 10;
             d.y = 10;
             """)
-            self.assertEqual(10, ctxt.eval("obj.y"))
-            self.assertEqual(10, ctxt.eval("obj.p"))
-            self.assertEqual(10, ctxt.locals.d['y'])
+            self.assertEquals(10, ctxt.eval("obj.y"))
+            self.assertEquals(10, ctxt.eval("obj.p"))
+            self.assertEquals(10, ctxt.locals.d['y'])
 
     def testWatch(self):
         class Obj(JSClass):
@@ -1785,25 +1648,25 @@ class TestWrapper(unittest.TestCase):
             });
             """)
 
-            self.assertEqual(1, ctxt.eval("o.p"))
+            self.assertEquals(1, ctxt.eval("o.p"))
 
             ctxt.eval("o.p = 2;")
 
-            self.assertEqual(3, ctxt.eval("o.p"))
+            self.assertEquals(3, ctxt.eval("o.p"))
 
             ctxt.eval("delete o.p;")
 
-            self.assertEqual(None, ctxt.eval("o.p"))
+            self.assertEquals(None, ctxt.eval("o.p"))
 
             ctxt.eval("o.p = 2;")
 
-            self.assertEqual(2, ctxt.eval("o.p"))
+            self.assertEquals(2, ctxt.eval("o.p"))
 
             ctxt.eval("o.unwatch('p');")
 
             ctxt.eval("o.p = 1;")
 
-            self.assertEqual(1, ctxt.eval("o.p"))
+            self.assertEquals(1, ctxt.eval("o.p"))
 
     def testReferenceError(self):
         class Global(JSClass):
@@ -1813,13 +1676,13 @@ class TestWrapper(unittest.TestCase):
         with JSContext(Global()) as ctxt:
             self.assertRaises(ReferenceError, ctxt.eval, 'x')
 
-            self.assertTrue(ctxt.eval("typeof(x) === 'undefined'"))
+            self.assert_(ctxt.eval("typeof(x) === 'undefined'"))
 
-            self.assertTrue(ctxt.eval("typeof(String) === 'function'"))
+            self.assert_(ctxt.eval("typeof(String) === 'function'"))
 
-            self.assertTrue(ctxt.eval("typeof(s.String) === 'undefined'"))
+            self.assert_(ctxt.eval("typeof(s.String) === 'undefined'"))
 
-            self.assertTrue(ctxt.eval("typeof(s.z) === 'undefined'"))
+            self.assert_(ctxt.eval("typeof(s.z) === 'undefined'"))
 
     def testRaiseExceptionInGetter(self):
         class Document(JSClass):
@@ -1834,31 +1697,8 @@ class TestWrapper(unittest.TestCase):
                 self.document = Document()
 
         with JSContext(Global()) as ctxt:
-            self.assertEqual(None, ctxt.eval('document.x'))
+            self.assertEquals(None, ctxt.eval('document.x'))
             self.assertRaises(TypeError, ctxt.eval, 'document.y')
-
-    def testUndefined(self):
-        class Global(JSClass):
-            def returnNull(self):
-                return JSNull()
-
-            def returnUndefined(self):
-                return JSUndefined()
-
-            def returnNone(self):
-                return None
-
-        with JSContext(Global()) as ctxt:
-            self.assertFalse(bool(JSNull()))
-            self.assertFalse(bool(JSUndefined()))
-
-            self.assertEqual("null", str(JSNull()))
-            self.assertEqual("undefined", str(JSUndefined()))
-
-            self.assertTrue(ctxt.eval('null == returnNull()'))
-            self.assertTrue(ctxt.eval('undefined == returnUndefined()'))
-            self.assertTrue(ctxt.eval('null == returnNone()'))
-
 
 class TestMultithread(unittest.TestCase):
     def testLocker(self):
@@ -1935,7 +1775,7 @@ class TestMultithread(unittest.TestCase):
 
         self.assertEqual(10, g.count)
 
-        self.assertTrue((time.time() - now) >= 1)
+        self.assert_((time.time() - now) >= 1)
 
     def testMultiJavascriptThread(self):
         import time, threading
@@ -2005,7 +1845,7 @@ class TestMultithread(unittest.TestCase):
 class TestEngine(unittest.TestCase):
     def testClassProperties(self):
         with JSContext() as ctxt:
-            self.assertTrue(str(JSEngine.version).startswith("3."))
+            self.assert_(str(JSEngine.version).startswith("3."))
             self.assertFalse(JSEngine.dead)
 
     def testCompile(self):
@@ -2013,10 +1853,10 @@ class TestEngine(unittest.TestCase):
             with JSEngine() as engine:
                 s = engine.compile("1+2")
 
-                self.assertTrue(isinstance(s, _PyV8.JSScript))
+                self.assert_(isinstance(s, _PyV8.JSScript))
 
-                self.assertEqual("1+2", s.source)
-                self.assertEqual(3, int(s.run()))
+                self.assertEquals("1+2", s.source)
+                self.assertEquals(3, int(s.run()))
 
                 self.assertRaises(SyntaxError, engine.compile, "1+")
 
@@ -2025,15 +1865,15 @@ class TestEngine(unittest.TestCase):
             with JSEngine() as engine:
                 data = engine.precompile("1+2")
 
-                self.assertTrue(data)
-                self.assertEqual(28, len(data))
+                self.assert_(data)
+                self.assertEquals(28, len(data))
 
                 s = engine.compile("1+2", precompiled=data)
 
-                self.assertTrue(isinstance(s, _PyV8.JSScript))
+                self.assert_(isinstance(s, _PyV8.JSScript))
 
-                self.assertEqual("1+2", s.source)
-                self.assertEqual(3, int(s.run()))
+                self.assertEquals("1+2", s.source)
+                self.assertEquals(3, int(s.run()))
 
                 self.assertRaises(SyntaxError, engine.precompile, "1+")
 
@@ -2042,7 +1882,7 @@ class TestEngine(unittest.TestCase):
             var = u'测试'
 
             def __getattr__(self, name):
-                if (name if is_py3k else name.decode('utf-8')) == u'变量':
+                if (name.decode('utf-8')) == u'变量':
                     return self.var
 
                 return JSClass.__getattr__(self, name)
@@ -2055,49 +1895,41 @@ class TestEngine(unittest.TestCase):
                 function 函数() { return 变量.length; }
 
                 函数();
-
-                var func = function () {};
                 """
 
                 data = engine.precompile(src)
 
-                self.assertTrue(data)
-                self.assertEqual(68, len(data))
+                self.assert_(data)
+                self.assertEquals(48, len(data))
 
                 s = engine.compile(src, precompiled=data)
 
-                self.assertTrue(isinstance(s, _PyV8.JSScript))
+                self.assert_(isinstance(s, _PyV8.JSScript))
 
-                self.assertEqual(toNativeString(src), s.source)
-                self.assertEqual(2, s.run())
+                self.assertEquals(src.encode('utf-8'), s.source)
+                self.assertEquals(2, s.run())
 
-                func_name = toNativeString(u'函数')
+                self.assert_(hasattr(ctxt.locals, u'函数'.encode('utf-8')))
 
-                self.assertTrue(hasattr(ctxt.locals, func_name))
+                func = getattr(ctxt.locals, u'函数'.encode('utf-8'))
 
-                func = getattr(ctxt.locals, func_name)
+                self.assert_(isinstance(func, _PyV8.JSFunction))
 
-                self.assertTrue(isinstance(func, _PyV8.JSFunction))
+                self.assertEquals(u'函数'.encode('utf-8'), func.name)
+                self.assertEquals("", func.resname)
+                self.assertEquals(1, func.linenum)
+                self.assertEquals(0, func.lineoff)
+                self.assertEquals(0, func.coloff)
 
-                self.assertEqual(func_name, func.name)
-                self.assertEqual("", func.resname)
-                self.assertEqual(1, func.linenum)
-                self.assertEqual(0, func.lineoff)
-                self.assertEqual(0, func.coloff)
+                setattr(ctxt.locals, u'变量'.encode('utf-8'), u'测试长字符串')
 
-                var_name = toNativeString(u'变量')
-
-                setattr(ctxt.locals, var_name, u'测试长字符串')
-
-                self.assertEqual(6, func())
-
-                self.assertEqual("func", ctxt.locals.func.inferredname)
+                self.assertEquals(6, func())
 
     def testExtension(self):
         extSrc = """function hello(name) { return "hello " + name + " from javascript"; }"""
         extJs = JSExtension("hello/javascript", extSrc)
 
-        self.assertTrue(extJs)
+        self.assert_(extJs)
         self.assertEqual("hello/javascript", extJs.name)
         self.assertEqual(extSrc, extJs.source)
         self.assertFalse(extJs.autoEnable)
@@ -2125,28 +1957,10 @@ class TestEngine(unittest.TestCase):
         with JSContext() as ctxt:
             self.assertRaises(ReferenceError, ctxt.eval, "hello('flier')")
 
-        extUnicodeSrc = u"""function helloW(name) { return "hello " + name + " from javascript"; }"""
-        extUnicodeJs = JSExtension(u"helloW/javascript", extUnicodeSrc)
-
-        self.assertTrue(extUnicodeJs)
-        self.assertEqual("helloW/javascript", extUnicodeJs.name)
-        self.assertEqual(toNativeString(extUnicodeSrc), extUnicodeJs.source)
-        self.assertFalse(extUnicodeJs.autoEnable)
-        self.assertTrue(extUnicodeJs.registered)
-
-        TestEngine.extUnicodeJs = extUnicodeJs
-
-        with JSContext(extensions=['helloW/javascript']) as ctxt:
-            self.assertEqual("hello flier from javascript", ctxt.eval("helloW('flier')"))
-
-            ret = ctxt.eval(u"helloW('世界')")
-
-            self.assertEqual(u"hello 世界 from javascript", ret if is_py3k else ret.decode('UTF-8'))
-
     def testNativeExtension(self):
         extSrc = "native function hello();"
         extPy = JSExtension("hello/python", extSrc, lambda func: lambda name: "hello " + name + " from python", register=False)
-        self.assertTrue(extPy)
+        self.assert_(extPy)
         self.assertEqual("hello/python", extPy.name)
         self.assertEqual(extSrc, extPy.source)
         self.assertFalse(extPy.autoEnable)
@@ -2165,26 +1979,26 @@ class TestEngine(unittest.TestCase):
         self.assertFalse(JSContext.entered)
 
         with JSContext() as ctxt:
-            self.assertTrue(JSContext.entered)
+            self.assert_(JSContext.entered)
 
             #ctxt.eval("function hello(name) { return 'hello ' + name; }")
 
             data = JSEngine.serialize()
 
-        self.assertTrue(data)
-        self.assertTrue(len(data) > 0)
+        self.assert_(data)
+        self.assert_(len(data) > 0)
 
         self.assertFalse(JSContext.entered)
 
         #JSEngine.deserialize()
 
-        self.assertTrue(JSContext.entered)
+        self.assert_(JSContext.entered)
 
-        self.assertEqual('hello flier', JSContext.current.eval("hello('flier');"))
+        self.assertEquals('hello flier', JSContext.current.eval("hello('flier');"))
 
     def testEval(self):
         with JSContext() as ctxt:
-            self.assertEqual(3, int(ctxt.eval("1+2")))
+            self.assertEquals(3, int(ctxt.eval("1+2")))
 
     def testGlobal(self):
         class Global(JSClass):
@@ -2194,35 +2008,35 @@ class TestEngine(unittest.TestCase):
             vars = ctxt.locals
 
             # getter
-            self.assertEqual(Global.version, str(vars.version))
-            self.assertEqual(Global.version, str(ctxt.eval("version")))
+            self.assertEquals(Global.version, str(vars.version))
+            self.assertEquals(Global.version, str(ctxt.eval("version")))
 
             self.assertRaises(ReferenceError, ctxt.eval, "nonexists")
 
             # setter
-            self.assertEqual(2.0, float(ctxt.eval("version = 2.0")))
+            self.assertEquals(2.0, float(ctxt.eval("version = 2.0")))
 
-            self.assertEqual(2.0, float(vars.version))
+            self.assertEquals(2.0, float(vars.version))
 
     def testThis(self):
         class Global(JSClass):
             version = 1.0
 
         with JSContext(Global()) as ctxt:
-            self.assertEqual("[object Global]", str(ctxt.eval("this")))
+            self.assertEquals("[object Global]", str(ctxt.eval("this")))
 
-            self.assertEqual(1.0, float(ctxt.eval("this.version")))
+            self.assertEquals(1.0, float(ctxt.eval("this.version")))
 
     def testObjectBuildInMethods(self):
         class Global(JSClass):
             version = 1.0
 
         with JSContext(Global()) as ctxt:
-            self.assertEqual("[object Global]", str(ctxt.eval("this.toString()")))
-            self.assertEqual("[object Global]", str(ctxt.eval("this.toLocaleString()")))
-            self.assertEqual(Global.version, float(ctxt.eval("this.valueOf()").version))
+            self.assertEquals("[object Global]", str(ctxt.eval("this.toString()")))
+            self.assertEquals("[object Global]", str(ctxt.eval("this.toLocaleString()")))
+            self.assertEquals(Global.version, float(ctxt.eval("this.valueOf()").version))
 
-            self.assertTrue(bool(ctxt.eval("this.hasOwnProperty(\"version\")")))
+            self.assert_(bool(ctxt.eval("this.hasOwnProperty(\"version\")")))
 
             self.assertFalse(ctxt.eval("this.hasOwnProperty(\"nonexistent\")"))
 
@@ -2239,17 +2053,17 @@ class TestEngine(unittest.TestCase):
                 s[0] = s[1];
                 delete s[1];
             """)
-            self.assertEqual([2, 4], g.s)
-            self.assertEqual('c', ctxt.eval("d.a.b"))
-            self.assertEqual(['e', 'f'], ctxt.eval("d.d"))
+            self.assertEquals([2, 4], g.s)
+            self.assertEquals('c', ctxt.eval("d.a.b"))
+            self.assertEquals(['e', 'f'], ctxt.eval("d.d"))
             ctxt.eval("""
                 d.a.q = 4
                 delete d.d
             """)
-            self.assertEqual(4, g.d['a']['q'])
-            self.assertEqual(None, ctxt.eval("d.d"))
+            self.assertEquals(4, g.d['a']['q'])
+            self.assertEquals(None, ctxt.eval("d.d"))
 
-    def _testMemoryAllocationCallback(self):
+    def testMemoryAllocationCallback(self):
         alloc = {}
 
         def callback(space, action, size):
@@ -2258,11 +2072,11 @@ class TestEngine(unittest.TestCase):
         JSEngine.setMemoryAllocationCallback(callback)
 
         with JSContext() as ctxt:
-            self.assertFalse((JSObjectSpace.Code, JSAllocationAction.alloc) in alloc)
+            self.assertEquals({}, alloc)
 
             ctxt.eval("var o = new Array(1000);")
 
-            self.assertTrue((JSObjectSpace.Code, JSAllocationAction.alloc) in alloc)
+            alloc.has_key((JSObjectSpace.Code, JSAllocationAction.alloc))
 
         JSEngine.setMemoryAllocationCallback(None)
 
@@ -2287,7 +2101,7 @@ class TestDebug(unittest.TestCase):
     def testEventDispatch(self):
         debugger = JSDebugger()
 
-        self.assertTrue(not debugger.enabled)
+        self.assert_(not debugger.enabled)
 
         debugger.onBreak = lambda evt: self.processDebugEvent(evt)
         debugger.onException = lambda evt: self.processDebugEvent(evt)
@@ -2298,15 +2112,39 @@ class TestDebug(unittest.TestCase):
         with JSContext() as ctxt:
             debugger.enabled = True
 
-            self.assertEqual(3, int(ctxt.eval("function test() { text = \"1+2\"; return eval(text) } test()")))
+            self.assertEquals(3, int(ctxt.eval("function test() { text = \"1+2\"; return eval(text) } test()")))
 
             debugger.enabled = False
 
             self.assertRaises(JSError, JSContext.eval, ctxt, "throw 1")
 
-            self.assertTrue(not debugger.enabled)
+            self.assert_(not debugger.enabled)
 
-        self.assertEqual(4, len(self.events))
+        self.assertEquals(4, len(self.events))
+
+class TestProfile(unittest.TestCase):
+    def _testStart(self):
+        self.assertFalse(profiler.started)
+
+        profiler.start()
+
+        self.assert_(profiler.started)
+
+        profiler.stop()
+
+        self.assertFalse(profiler.started)
+
+    def _testResume(self):
+        self.assert_(profiler.paused)
+
+        self.assertEquals(profiler.Modules.cpu, profiler.modules)
+
+        profiler.resume()
+
+        profiler.resume(profiler.Modules.heap)
+
+        # TODO enable profiler with resume
+        #self.assertFalse(profiler.paused)
 
 
 class TestAST(unittest.TestCase):
@@ -2314,22 +2152,14 @@ class TestAST(unittest.TestCase):
     class Checker(object):
         def __init__(self, testcase):
             self.testcase = testcase
-            self.called = []
-
-        def __enter__(self):
-            self.ctxt = JSContext()
-            self.ctxt.enter()
-
-            return self
-
-        def __exit__(self, exc_type, exc_value, traceback):
-            self.ctxt.leave()
+            self.called = 0
 
         def __getattr__(self, name):
             return getattr(self.testcase, name)
 
         def test(self, script):
-            JSEngine().compile(script).visit(self)
+            with JSContext() as ctxt:
+                JSEngine().compile(script).visit(self)
 
             return self.called
 
@@ -2355,241 +2185,229 @@ class TestAST(unittest.TestCase):
     def testBlock(self):
         class BlockChecker(TestAST.Checker):
             def onBlock(self, stmt):
-                self.called.append('block')
+                self.called += 1
 
-                self.assertEqual(AST.NodeType.Block, stmt.type)
+                self.assertEquals(AST.NodeType.Block, stmt.type)
 
-                self.assertTrue(stmt.initializerBlock)
+                self.assert_(stmt.initializerBlock)
                 self.assertFalse(stmt.anonymous)
 
                 target = stmt.breakTarget
-                self.assertTrue(target)
+                self.assert_(target)
                 self.assertFalse(target.bound)
-                self.assertTrue(target.unused)
+                self.assert_(target.unused)
                 self.assertFalse(target.linked)
 
-                self.assertEqual(2, len(stmt.statements))
+                self.assertEquals(2, len(stmt.statements))
 
-                self.assertEqual(['%InitializeVarGlobal("i", 0);', '%InitializeVarGlobal("j", 0);'], [str(s) for s in stmt.statements])
+                self.assertEquals(['%InitializeVarGlobal("i", 0);', '%InitializeVarGlobal("j", 0);'], [str(s) for s in stmt.statements])
 
-        with BlockChecker(self) as checker:
-            self.assertEqual(['block'], checker.test("var i, j;"))
-            self.assertEqual("""FUNC
+        checker = BlockChecker(self)
+        self.assertEquals(1, checker.test("var i, j;"))
+        self.assertEquals("""FUNC
 . NAME ""
 . INFERRED NAME ""
 . DECLS
 . . VAR "i"
 . . VAR "j"
 . BLOCK INIT
-. . EXPRESSION STATEMENT
-. . . CALL RUNTIME
-. . . . NAME InitializeVarGlobal
-. . . . LITERAL "i"
-. . . . LITERAL 0
-. . EXPRESSION STATEMENT
-. . . CALL RUNTIME
-. . . . NAME InitializeVarGlobal
-. . . . LITERAL "j"
-. . . . LITERAL 0
+. . CALL RUNTIME  InitializeVarGlobal
+. . . LITERAL "i"
+. . . LITERAL 0
+. . CALL RUNTIME  InitializeVarGlobal
+. . . LITERAL "j"
+. . . LITERAL 0
 """, checker.ast)
-
-            self.assertEqual([u'FunctionLiteral', {u'name': u''},
-                [u'Declaration', {u'mode': u'VAR'},
-                    [u'Variable', {u'name': u'i'}]
-                ], [u'Declaration', {u'mode':u'VAR'},
-                    [u'Variable', {u'name': u'j'}]
-                ], [u'Block',
-                    [u'ExpressionStatement', [u'CallRuntime', {u'name': u'InitializeVarGlobal'},
-                        [u'Literal', {u'handle':u'i'}],
-                        [u'Literal', {u'handle': 0}]]],
-                    [u'ExpressionStatement', [u'CallRuntime', {u'name': u'InitializeVarGlobal'},
-                        [u'Literal', {u'handle': u'j'}],
-                        [u'Literal', {u'handle': 0}]]]
-                ]
-            ], checker.json)
+        self.assertEquals([u'FunctionLiteral', {u'name': u''},
+            [u'Declaration', {u'mode': u'VAR'},
+                [u'Variable', {u'name': u'i'}]
+            ], [u'Declaration', {u'mode':u'VAR'},
+                [u'Variable', {u'name': u'j'}]
+            ], [u'Block',
+                [u'ExpressionStatement', [u'CallRuntime', {u'name': u'InitializeVarGlobal'},
+                    [u'Literal', {u'handle':u'i'}],
+                    [u'Literal', {u'handle': 0}]]],
+                [u'ExpressionStatement', [u'CallRuntime', {u'name': u'InitializeVarGlobal'},
+                    [u'Literal', {u'handle': u'j'}],
+                    [u'Literal', {u'handle': 0}]]]
+            ]
+        ], checker.json)
 
     def testIfStatement(self):
         class IfStatementChecker(TestAST.Checker):
             def onIfStatement(self, stmt):
-                self.called.append('if')
+                self.called += 1
 
-                self.assertTrue(stmt)
-                self.assertEqual(AST.NodeType.IfStatement, stmt.type)
+                self.assert_(stmt)
+                self.assertEquals(AST.NodeType.IfStatement, stmt.type)
 
-                self.assertEqual(7, stmt.pos)
+                self.assertEquals(7, stmt.pos)
+                stmt.pos = 100
+                self.assertEquals(100, stmt.pos)
 
-                self.assertTrue(stmt.hasThenStatement)
-                self.assertTrue(stmt.hasElseStatement)
+                self.assert_(stmt.hasThenStatement)
+                self.assert_(stmt.hasElseStatement)
 
-                self.assertEqual("((value % 2) == 0)", str(stmt.condition))
-                self.assertEqual("{ s = \"even\"; }", str(stmt.thenStatement))
-                self.assertEqual("{ s = \"odd\"; }", str(stmt.elseStatement))
+                self.assertEquals("((value % 2) == 0)", str(stmt.condition))
+                self.assertEquals("{ s = \"even\"; }", str(stmt.thenStatement))
+                self.assertEquals("{ s = \"odd\"; }", str(stmt.elseStatement))
 
                 self.assertFalse(stmt.condition.isPropertyName)
 
-        with IfStatementChecker(self) as checker:
-            self.assertEqual(['if'], checker.test("var s; if (value % 2 == 0) { s = 'even'; } else { s = 'odd'; }"))
+        self.assertEquals(1, IfStatementChecker(self).test("var s; if (value % 2 == 0) { s = 'even'; } else { s = 'odd'; }"))
 
     def testForStatement(self):
         class ForStatementChecker(TestAST.Checker):
             def onForStatement(self, stmt):
-                self.called.append('for')
+                self.called += 1
 
-                self.assertEqual("{ j += i; }", str(stmt.body))
+                self.assertEquals("{ j += i; }", str(stmt.body))
 
-                self.assertEqual("i = 0;", str(stmt.init))
-                self.assertEqual("(i < 10)", str(stmt.condition))
-                self.assertEqual("(i++);", str(stmt.nextStmt))
+                self.assertEquals("i = 0;", str(stmt.init))
+                self.assertEquals("(i < 10)", str(stmt.condition))
+                self.assertEquals("(i++);", str(stmt.next))
 
                 target = stmt.continueTarget
 
-                self.assertTrue(target)
+                self.assert_(target)
                 self.assertFalse(target.bound)
-                self.assertTrue(target.unused)
+                self.assert_(target.unused)
                 self.assertFalse(target.linked)
                 self.assertFalse(stmt.fastLoop)
 
             def onForInStatement(self, stmt):
-                self.called.append('forIn')
+                self.called += 1
 
-                self.assertEqual("{ out += name; }", str(stmt.body))
+                self.assertEquals("{ out += name; }", str(stmt.body))
 
-                self.assertEqual("name", str(stmt.each))
-                self.assertEqual("names", str(stmt.enumerable))
+                self.assertEquals("name", str(stmt.each))
+                self.assertEquals("names", str(stmt.enumerable))
 
             def onWhileStatement(self, stmt):
-                self.called.append('while')
+                self.called += 1
 
-                self.assertEqual("{ i += 1; }", str(stmt.body))
+                self.assertEquals("{ i += 1; }", str(stmt.body))
 
-                self.assertEqual("(i < 10)", str(stmt.condition))
+                self.assertEquals("(i < 10)", str(stmt.condition))
 
             def onDoWhileStatement(self, stmt):
-                self.called.append('doWhile')
+                self.called += 1
 
-                self.assertEqual("{ i += 1; }", str(stmt.body))
+                self.assertEquals("{ i += 1; }", str(stmt.body))
 
-                self.assertEqual("(i < 10)", str(stmt.condition))
-                self.assertEqual(283, stmt.condition.pos)
+                self.assertEquals("(i < 10)", str(stmt.condition))
+                self.assertEquals(253, stmt.conditionPos)
 
-        with ForStatementChecker(self) as checker:
-            self.assertEqual(['for', 'forIn', 'while', 'doWhile'], checker.test("""
-                var i, j;
+        self.assertEquals(4, ForStatementChecker(self).test("""
+            var i, j;
 
-                for (i=0; i<10; i++) { j+=i; }
+            for (i=0; i<10; i++) { j+=i; }
 
-                var names = new Array();
-                var out = '';
+            var names = new Array();
+            var out = '';
 
-                for (name in names) { out += name; }
+            for (name in names) { out += name; }
 
-                while (i<10) { i += 1; }
+            while (i<10) { i += 1; }
 
-                do { i += 1; } while (i<10);
-            """))
+            do { i += 1; } while (i<10);
+        """))
 
     def testCallStatements(self):
         class CallStatementChecker(TestAST.Checker):
-            def onVariableDeclaration(self, decl):
-                self.called.append('var')
+            def onDeclaration(self, decl):
+                self.called += 1
 
                 var = decl.proxy
 
                 if var.name == 's':
-                    self.assertEqual(AST.VarMode.var, decl.mode)
+                    self.assertEquals(AST.VarMode.var, decl.mode)
+                    self.assertEquals(None, decl.function)
 
-                    self.assertTrue(var.isValidLeftHandSide)
+                    self.assert_(var.isValidLeftHandSide)
                     self.assertFalse(var.isArguments)
                     self.assertFalse(var.isThis)
-
-            def onFunctionDeclaration(self, decl):
-                self.called.append('func')
-
-                var = decl.proxy
-
-                if var.name == 'hello':
-                    self.assertEqual(AST.VarMode.var, decl.mode)
-                    self.assertTrue(decl.function)
-                    self.assertEqual('(function hello(name) { s = ("Hello " + name); })', str(decl.function))
+                elif var.name == 'hello':
+                    self.assertEquals(AST.VarMode.var, decl.mode)
+                    self.assert_(decl.function)
+                    self.assertEquals('(function hello(name) { s = ("Hello " + name); })', str(decl.function))
                 elif var.name == 'dog':
-                    self.assertEqual(AST.VarMode.var, decl.mode)
-                    self.assertTrue(decl.function)
-                    self.assertEqual('(function dog(name) { (this).name = name; })', str(decl.function))
+                    self.assertEquals(AST.VarMode.var, decl.mode)
+                    self.assert_(decl.function)
+                    self.assertEquals('(function dog(name) { (this).name = name; })', str(decl.function))
 
             def onCall(self, expr):
-                self.called.append('call')
+                self.called += 1
 
-                self.assertEqual("hello", str(expr.expression))
-                self.assertEqual(['"flier"'], [str(arg) for arg in expr.args])
-                self.assertEqual(159, expr.pos)
+                self.assertEquals("hello", str(expr.expression))
+                self.assertEquals(['"flier"'], [str(arg) for arg in expr.args])
+                self.assertEquals(143, expr.pos)
 
             def onCallNew(self, expr):
-                self.called.append('callNew')
+                self.called += 1
 
-                self.assertEqual("dog", str(expr.expression))
-                self.assertEqual(['"cat"'], [str(arg) for arg in expr.args])
-                self.assertEqual(191, expr.pos)
+                self.assertEquals("dog", str(expr.expression))
+                self.assertEquals(['"cat"'], [str(arg) for arg in expr.args])
+                self.assertEquals(171, expr.pos)
 
             def onCallRuntime(self, expr):
-                self.called.append('callRuntime')
+                self.called += 1
 
-                self.assertEqual("InitializeVarGlobal", expr.name)
-                self.assertEqual(['"s"', '0'], [str(arg) for arg in expr.args])
+                self.assertEquals("InitializeVarGlobal", expr.name)
+                self.assertEquals(['"s"', '0'], [str(arg) for arg in expr.args])
                 self.assertFalse(expr.isJsRuntime)
 
-        with CallStatementChecker(self) as checker:
-            self.assertEqual(['var', 'func', 'func', 'callRuntime', 'call', 'callNew'], checker.test("""
-                var s;
-                function hello(name) { s = "Hello " + name; }
-                function dog(name) { this.name = name; }
-                hello("flier");
-                new dog("cat");
-            """))
+        self.assertEquals(6,  CallStatementChecker(self).test("""
+            var s;
+            function hello(name) { s = "Hello " + name; }
+            function dog(name) { this.name = name; }
+            hello("flier");
+            new dog("cat");
+        """))
 
     def testTryStatements(self):
         class TryStatementsChecker(TestAST.Checker):
             def onThrow(self, expr):
-                self.called.append('try')
+                self.called += 1
 
-                self.assertEqual('"abc"', str(expr.exception))
-                self.assertEqual(66, expr.pos)
+                self.assertEquals('"abc"', str(expr.exception))
+                self.assertEquals(54, expr.pos)
 
             def onTryCatchStatement(self, stmt):
-                self.called.append('catch')
+                self.called += 1
 
-                self.assertEqual("{ throw \"abc\"; }", str(stmt.tryBlock))
-                #FIXME self.assertEqual([], stmt.targets)
+                self.assertEquals("{ throw \"abc\"; }", str(stmt.tryBlock))
+                #FIXME self.assertEquals([], stmt.targets)
 
                 stmt.tryBlock.visit(self)
 
-                self.assertEqual("err", str(stmt.variable.name))
-                self.assertEqual("{ s = err; }", str(stmt.catchBlock))
+                self.assertEquals("err", str(stmt.variable.name))
+                self.assertEquals("{ s = err; }", str(stmt.catchBlock))
 
             def onTryFinallyStatement(self, stmt):
-                self.called.append('finally')
+                self.called += 1
 
-                self.assertEqual("{ throw \"abc\"; }", str(stmt.tryBlock))
-                #FIXME self.assertEqual([], stmt.targets)
+                self.assertEquals("{ throw \"abc\"; }", str(stmt.tryBlock))
+                #FIXME self.assertEquals([], stmt.targets)
 
-                self.assertEqual("{ s += \".\"; }", str(stmt.finallyBlock))
+                self.assertEquals("{ s += \".\"; }", str(stmt.finallyBlock))
 
-        with TryStatementsChecker(self) as checker:
-            self.assertEqual(['catch', 'try', 'finally'], checker.test("""
-                var s;
-                try {
-                    throw "abc";
-                }
-                catch (err) {
-                    s = err;
-                };
+        self.assertEquals(3, TryStatementsChecker(self).test("""
+            var s;
+            try {
+                throw "abc";
+            }
+            catch (err) {
+                s = err;
+            };
 
-                try {
-                    throw "abc";
-                }
-                finally {
-                    s += ".";
-                }
-            """))
+            try {
+                throw "abc";
+            }
+            finally {
+                s += ".";
+            }
+        """))
 
     def testLiterals(self):
         class LiteralChecker(TestAST.Checker):
@@ -2597,44 +2415,44 @@ class TestAST(unittest.TestCase):
                 expr.args[1].visit(self)
 
             def onLiteral(self, litr):
-                self.called.append('literal')
+                self.called += 1
 
                 self.assertFalse(litr.isPropertyName)
                 self.assertFalse(litr.isNull)
                 self.assertFalse(litr.isTrue)
 
             def onRegExpLiteral(self, litr):
-                self.called.append('regex')
+                self.called += 1
 
-                self.assertEqual("test", litr.pattern)
-                self.assertEqual("g", litr.flags)
+                self.assertEquals("test", litr.pattern)
+                self.assertEquals("g", litr.flags)
 
             def onObjectLiteral(self, litr):
-                self.called.append('object')
+                self.called += 1
 
-                self.assertEqual('constant:"name"="flier",constant:"sex"=true',
+                self.assertEquals('constant:"name"="flier",constant:"sex"=true',
                                   ",".join(["%s:%s=%s" % (prop.kind, prop.key, prop.value) for prop in litr.properties]))
 
             def onArrayLiteral(self, litr):
-                self.called.append('array')
+                self.called += 1
 
-                self.assertEqual('"hello","world",42',
+                self.assertEquals('"hello","world",42',
                                   ",".join([str(value) for value in litr.values]))
-        with LiteralChecker(self) as checker:
-            self.assertEqual(['literal', 'regex', 'literal', 'literal'], checker.test("""
-                false;
-                /test/g;
-                var o = { name: 'flier', sex: true };
-                var a = ['hello', 'world', 42];
-            """))
+
+        self.assertEquals(4, LiteralChecker(self).test("""
+            false;
+            /test/g;
+            var o = { name: 'flier', sex: true };
+            var a = ['hello', 'world', 42];
+        """))
 
     def testOperations(self):
         class OperationChecker(TestAST.Checker):
             def onUnaryOperation(self, expr):
-                self.called.append('unaryOp')
+                self.called += 1
 
-                self.assertEqual(AST.Op.BIT_NOT, expr.op)
-                self.assertEqual("i", expr.expression.name)
+                self.assertEquals(AST.Op.BIT_NOT, expr.op)
+                self.assertEquals("i", expr.expression.name)
 
                 #print "unary", expr
 
@@ -2642,114 +2460,77 @@ class TestAST(unittest.TestCase):
                 self.fail()
 
             def onBinaryOperation(self, expr):
-                self.called.append('binOp')
+                self.called += 1
 
-                if expr.op == AST.Op.BIT_XOR:
-                    self.assertEqual("i", str(expr.left))
-                    self.assertEqual("-1", str(expr.right))
-                    self.assertEqual(124, expr.pos)
-                else:
-                    self.assertEqual("i", str(expr.left))
-                    self.assertEqual("j", str(expr.right))
-                    self.assertEqual(36, expr.pos)
+                self.assertEquals(AST.Op.ADD, expr.op)
+                self.assertEquals("i", str(expr.left))
+                self.assertEquals("j", str(expr.right))
+                self.assertEquals(28, expr.pos)
+
+                #print "bin", expr
 
             def onAssignment(self, expr):
-                self.called.append('assign')
+                self.called += 1
 
-                self.assertEqual(AST.Op.ASSIGN_ADD, expr.op)
-                self.assertEqual(AST.Op.ADD, expr.binop)
+                self.assertEquals(AST.Op.ASSIGN_ADD, expr.op)
+                self.assertEquals(AST.Op.ADD, expr.binop)
 
-                self.assertEqual("i", str(expr.target))
-                self.assertEqual("1", str(expr.value))
-                self.assertEqual(53, expr.pos)
+                self.assertEquals("i", str(expr.target))
+                self.assertEquals("1", str(expr.value))
+                self.assertEquals(41, expr.pos)
 
-                self.assertEqual("(i + 1)", str(expr.binOperation))
+                self.assertEquals("(i + 1)", str(expr.binOperation))
 
-                self.assertTrue(expr.compound)
+                self.assert_(expr.compound)
 
             def onCountOperation(self, expr):
-                self.called.append('countOp')
+                self.called += 1
 
                 self.assertFalse(expr.prefix)
-                self.assertTrue(expr.postfix)
+                self.assert_(expr.postfix)
 
-                self.assertEqual(AST.Op.INC, expr.op)
-                self.assertEqual(AST.Op.ADD, expr.binop)
-                self.assertEqual(71, expr.pos)
-                self.assertEqual("i", expr.expression.name)
+                self.assertEquals(AST.Op.INC, expr.op)
+                self.assertEquals(AST.Op.ADD, expr.binop)
+                self.assertEquals(55, expr.pos)
+                self.assertEquals("i", expr.expression.name)
 
                 #print "count", expr
 
             def onCompareOperation(self, expr):
-                self.called.append('compOp')
+                self.called += 1
 
-                if len(self.called) == 4:
-                    self.assertEqual(AST.Op.EQ, expr.op)
-                    self.assertEqual(88, expr.pos) # i==j
+                if self.called == 4:
+                    self.assertEquals(AST.Op.EQ, expr.op)
+                    self.assertEquals(68, expr.pos) # i==j
                 else:
-                    self.assertEqual(AST.Op.EQ_STRICT, expr.op)
-                    self.assertEqual(106, expr.pos) # i===j
+                    self.assertEquals(AST.Op.EQ_STRICT, expr.op)
+                    self.assertEquals(82, expr.pos) # i===j
 
-                self.assertEqual("i", str(expr.left))
-                self.assertEqual("j", str(expr.right))
+                self.assertEquals("i", str(expr.left))
+                self.assertEquals("j", str(expr.right))
 
                 #print "comp", expr
 
             def onConditional(self, expr):
-                self.called.append('conditional')
+                self.called += 1
 
-                self.assertEqual("(i > j)", str(expr.condition))
-                self.assertEqual("i", str(expr.thenExpr))
-                self.assertEqual("j", str(expr.elseExpr))
+                self.assertEquals("(i > j)", str(expr.condition))
+                self.assertEquals("i", str(expr.thenExpr))
+                self.assertEquals("j", str(expr.elseExpr))
 
-                self.assertEqual(144, expr.thenExpr.pos)
-                self.assertEqual(146, expr.elseExpr.pos)
+                self.assertEquals(112, expr.thenExprPos)
+                self.assertEquals(114, expr.elseExprPos)
 
-        with OperationChecker(self) as checker:
-            self.assertEqual(['binOp', 'assign', 'countOp', 'compOp', 'compOp', 'binOp', 'conditional'], checker.test("""
-            var i, j;
-            i+j;
-            i+=1;
-            i++;
-            i==j;
-            i===j;
-            ~i;
-            i>j?i:j;
-            """))
-
-    def testSwitchStatement(self):
-        class SwitchStatementChecker(TestAST.Checker):
-            def onSwitchStatement(self, stmt):
-                self.called.append('switch')
-
-                self.assertEqual('expr', stmt.tag.name)
-                self.assertEqual(2, len(stmt.cases))
-
-                case = stmt.cases[0]
-
-                self.assertFalse(case.isDefault)
-                self.assertTrue(case.label.isString)
-                self.assertEqual(0, case.bodyTarget.pos)
-                self.assertEqual(57, case.pos)
-                self.assertEqual(1, len(case.statements))
-
-                case = stmt.cases[1]
-
-                self.assertTrue(case.isDefault)
-                self.assertEqual(None, case.label)
-                self.assertEqual(0, case.bodyTarget.pos)
-                self.assertEqual(109, case.pos)
-                self.assertEqual(1, len(case.statements))
-
-        with SwitchStatementChecker(self) as checker:
-            self.assertEqual(['switch'], checker.test("""
-            switch (expr) {
-                case 'flier':
-                    break;
-                default:
-                    break;
-            }
-            """))
+        self.assertEquals(7, OperationChecker(self).test("""
+        var i, j;
+        i+j;
+        i+=1;
+        i++;
+        i==j;
+        i===j;
+        ~i;
+        i>j?i:j;
+        """))
 
 if __name__ == '__main__':
     if "-v" in sys.argv:
@@ -2759,7 +2540,7 @@ if __name__ == '__main__':
 
     if "-p" in sys.argv:
         sys.argv.remove("-p")
-        print("Press any key to continue or attach process #%d..." % os.getpid())
+        print "Press any key to continue..."
         raw_input()
 
     logging.basicConfig(level=level, format='%(asctime)s %(levelname)s %(message)s')
