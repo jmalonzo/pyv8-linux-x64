@@ -57,6 +57,8 @@ Dependencies:
 Download and extract Boost 1.54 and run the following:
 
 ```
+[~ $] mkdir -p ~/boost && cd ~/boost
+[~/boost $] wget http://sourceforge.net/projects/boost/files/boost/1.54.0/boost_1_54_0.tar.gz && tar -xvzf boost_1_54_0.tar.gz
 [~/boost $] ./bootstrap.sh
 [~/boost $] ./b2 install --prefix=/usr/local --with-python --with-thread
 [~/boost $] ldconfig && ldconfig /usr/local/lib
